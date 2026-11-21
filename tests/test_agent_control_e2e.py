@@ -30,6 +30,29 @@ def capture_cli(tool, **kwargs):
     return calls[0][len(cli.base):]
 
 
+class ScratchOptionsTest(unittest.TestCase):
+    """The scratch options pin the language whose widget ids the scenarios click."""
+
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp())
+
+    def tearDown(self):
+        shutil.rmtree(self.root, ignore_errors=True)
+
+    def test_scratch_options_pin_english(self):
+        home = self.root / 'home'
+        home.mkdir()
+        with mock.patch.object(e.tempfile, 'mkdtemp', return_value=str(home)), \
+             mock.patch.object(e.lab, 'link_dir'), \
+             mock.patch.object(e, 'game_env', return_value={}):
+            work, env = e.scratch('ui', Path('resources'))
+        self.assertEqual(work, home)
+        self.assertEqual(env, {})
+        options = (work / 'options.txt').read_text()
+        self.assertIn('onboardAccessibility:false\n', options)
+        self.assertIn('lang:en_us\n', options)
+
+
 class CliArgvTest(unittest.TestCase):
     """F4: the CLI argv must use the exact spellings declared in horizon-ctl's commands.rs."""
 
