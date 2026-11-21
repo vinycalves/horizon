@@ -301,8 +301,8 @@ turn the switch off.
   [native-client.md](native-client.md) are the English ones. On a Russian client the title screen
   has `одиночная-игра`, not `singleplayer`, and `настройки`, not `options`. A script that clicks a
   literal id either pins the language first (`options-set lang en_us` on a running game, or
-  `lang:en_us` in the game home's `options.txt` before launch) or reads `ui` and uses the ids it
-  returns. A repeated slug gets `-2`, `-3`; unlabelled elements are `<kind>-<n>`. A slider's id
+  `lang:en_us` in the game folder's `options.txt` before launch: `--game-dir`, default the
+  working directory, or `--player-dir` when set) or reads `ui` and uses the ids it returns. A repeated slug gets `-2`, `-3`; unlabelled elements are `<kind>-<n>`. A slider's id
   doesn't change with its value. Slots are `slot-<ID>` with their stack.
 - **Kinds:** `button`, `slider` (`value` 0..1), `field`, `row` (a world, server, pack or
   language), `tab` (`selected`), `slot`.
