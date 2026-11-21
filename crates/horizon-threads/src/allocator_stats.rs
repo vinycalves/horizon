@@ -89,9 +89,13 @@ mod tests {
         let after = live_bytes().unwrap();
         // A huge block has no page size to count, and leaving it out is what keeps the figure
         // under `commit_mb`; a cumulative counter would have kept the 64 MiB in `after`. The
-        // statistics buffer may grow one page while the block is live, so only the bound and
-        // the return to the baseline are asserted.
+        // statistics buffer itself may take or release a page between the reads, so allow a
+        // few pages of slack: the 64 MiB block would be far above it.
+        let slack = 4 << 20;
         assert!(during <= commit, "{during} over {commit} committed");
-        assert_eq!(after, before, "{before} then {during} then {after}");
+        assert!(
+            after <= before + slack,
+            "{before} then {during} then {after}"
+        );
     }
 }
