@@ -403,9 +403,14 @@ impl Split<'_> {
             }
             Claim::Leave(k) => {
                 let seat = self.lost.remove(k).seat;
-                if let Some(g) = self.guests.iter_mut().find(|g| g.seat == seat) {
-                    g.game.split_hud.prompt = None;
-                    if let Err(e) = g.game.leave_server(None) {
+                if let Some(index) = self.guests.iter().position(|g| g.seat == seat) {
+                    self.guests[index].game.split_hud.prompt = None;
+                    // The leave hooks see the guest's seat, as `switch` and `close_window`
+                    // do: P2 leaving must not run them as P1.
+                    self.turn(seat);
+                    let left = self.guests[index].game.leave_server(None);
+                    self.turn(0);
+                    if let Err(e) = left {
                         log::warn!("Horizon: splitscreen: {e}");
                     }
                 }
