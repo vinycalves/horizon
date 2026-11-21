@@ -88,8 +88,9 @@ mod tests {
         unsafe { libmimalloc_sys::mi_free(block) };
         let after = live_bytes().unwrap();
         // A huge block has no page size to count, and leaving it out is what keeps the figure
-        // under `commit_mb`; a cumulative counter would have kept the 64 MiB in `after`.
-        assert_eq!(during, before, "{before} then {during}");
+        // under `commit_mb`; a cumulative counter would have kept the 64 MiB in `after`. The
+        // statistics buffer may grow one page while the block is live, so only the bound and
+        // the return to the baseline are asserted.
         assert!(during <= commit, "{during} over {commit} committed");
         assert_eq!(after, before, "{before} then {during} then {after}");
     }
