@@ -116,6 +116,11 @@ pub(super) fn claim<Id>(
     }
 }
 
+/// The `turn` index of the guest found at `seat`, if any: `turn(i)` selects guest `i - 1`.
+fn guest_turn(seats: impl IntoIterator<Item = usize>, seat: usize) -> Option<usize> {
+    seats.into_iter().position(|s| s == seat).map(|index| index + 1)
+}
+
 impl Split<'_> {
     /// Give P1 its normal controller reader again and discard pending joins and handoffs.
     pub(super) fn stop_routing(&mut self) {
@@ -403,12 +408,13 @@ impl Split<'_> {
             }
             Claim::Leave(k) => {
                 let seat = self.lost.remove(k).seat;
-                if let Some(index) = self.guests.iter().position(|g| g.seat == seat) {
-                    self.guests[index].game.split_hud.prompt = None;
+                if let Some(turn) = guest_turn(self.guests.iter().map(|g| g.seat), seat) {
+                    self.guests[turn - 1].game.split_hud.prompt = None;
                     // The leave hooks see the guest's seat, as `switch` and `close_window`
-                    // do: P2 leaving must not run them as P1.
-                    self.turn(seat);
-                    let left = self.guests[index].game.leave_server(None);
+                    // do: P2 leaving must not run them as P1. `turn` takes the guest's
+                    // index plus one, not its seat.
+                    self.turn(turn);
+                    let left = self.guests[turn - 1].game.leave_server(None);
                     self.turn(0);
                     if let Err(e) = left {
                         log::warn!("Horizon: splitscreen: {e}");
@@ -486,6 +492,13 @@ mod tests {
             id: seat,
             uuid,
         }
+    }
+
+    #[test]
+    fn a_guest_turn_is_its_index_in_the_guest_list_not_its_seat() {
+        assert_eq!(guest_turn([2, 3], 2), Some(1));
+        assert_eq!(guest_turn([2, 3], 3), Some(2));
+        assert_eq!(guest_turn([2, 3], 1), None);
     }
 
     #[test]
