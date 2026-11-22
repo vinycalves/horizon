@@ -51,9 +51,9 @@ ACTIVITY = """timelineItems(itemTypes: [PULL_REQUEST_COMMIT, HEAD_REF_FORCE_PUSH
     nodes {
       __typename
       ... on PullRequestCommit { commit { committedDate } }
-      ... on HeadRefForcePushedEvent { createdAt }
-      ... on ReopenedEvent { createdAt }
-      ... on ReadyForReviewEvent { createdAt }
+      ... on HeadRefForcePushedEvent { createdAt actor { login } }
+      ... on ReopenedEvent { createdAt actor { login } }
+      ... on ReadyForReviewEvent { createdAt actor { login } }
       ... on PullRequestReview { submittedAt author { login __typename } }
     }
   }"""
@@ -123,11 +123,15 @@ def author_activity(pr: dict) -> datetime:
         times += [c["publishedAt"] for c in thread["comments"]["nodes"]
                   if not is_bot(c) and login_of(c) == author]
     for item in pr["timelineItems"]["nodes"]:
-        if item.get("__typename") == "PullRequestReview":
+        kind = item.get("__typename")
+        if kind == "PullRequestReview":
             if not is_bot(item) and login_of(item) == author:
                 times.append(item.get("submittedAt"))
-        else:
-            times.append(((item.get("commit") or {}).get("committedDate")) or item.get("createdAt"))
+        elif kind == "PullRequestCommit":
+            times.append((item.get("commit") or {}).get("committedDate"))
+        elif (((item.get("actor") or {}).get("login")) or "").lower() == author:
+            # Reopened, ready for review, force-pushed: a maintainer doing it does not reset the author's clock.
+            times.append(item.get("createdAt"))
     times += [c["createdAt"] for c in pr["comments"]["nodes"]
               if not is_bot(c) and login_of(c) == author]
     return max(when(t) for t in times if t)

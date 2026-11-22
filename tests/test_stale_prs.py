@@ -84,8 +84,13 @@ class TriggerTests(unittest.TestCase):
 
     def test_a_reopen_counts_as_activity(self):
         p = pr(idle=10)
-        p["timelineItems"]["nodes"].append({"__typename": "ReopenedEvent", "createdAt": ago(1)})
+        p["timelineItems"]["nodes"].append({"__typename": "ReopenedEvent", "createdAt": ago(1),
+                                          "actor": {"login": "author"}})
         self.assertEqual(decide(p), "skip")
+        p = pr(idle=10)
+        p["timelineItems"]["nodes"].append({"__typename": "ReopenedEvent", "createdAt": ago(1),
+                                          "actor": {"login": "maintainer"}})
+        self.assertEqual(decide(p), "warn")
 
     def test_a_push_counts_from_when_it_arrived_not_when_the_commit_was_made(self):
         self.assertEqual(decide(pr(idle=10, pushed=1)), "skip")
