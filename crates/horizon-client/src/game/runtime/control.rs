@@ -1618,6 +1618,19 @@ impl Game<'_> {
             .iter()
             .map(|(id, (pos, stage, _))| json!({ "id": id, "pos": pos, "stage": stage }))
             .collect();
+        // Its own `json!` object: the status macro is already at the crate's recursion limit.
+        let display = self
+            .window
+            .as_deref()
+            .and_then(horizon_client::monitor::of)
+            .map(|m| {
+                json!({
+                    "width": m.size().width,
+                    "height": m.size().height,
+                    "scale": m.scale_factor(),
+                    "refresh_hz": m.refresh_rate_millihertz().map(|r| r.div_ceil(1000)),
+                })
+            });
         let mut status = json!({
             "screen": self.screen_name(),
             "debug": {
@@ -1666,12 +1679,7 @@ impl Game<'_> {
             "streaming": self.streaming.stages().into_iter().map(|(k, v)| (k.to_string(), v.into())).collect::<serde_json::Map<_, _>>(),
             "dirty_light": self.world.dirty_light.len(),
             "renderer": renderer,
-            "display": self.window.as_deref().and_then(horizon_client::monitor::of).map(|m| json!({
-                "width": m.size().width,
-                "height": m.size().height,
-                "scale": m.scale_factor(),
-                "refresh_hz": m.refresh_rate_millihertz().map(|r| r.div_ceil(1000)),
-            })),
+            "display": display,
             "uptime_seconds": self.started.elapsed().as_secs_f64(),
             "server": self.remote_status(),
             // The names the name tags show now, seen from the eyes.
