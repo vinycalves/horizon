@@ -35,11 +35,7 @@ fn a_hook_result_take_uses_up_the_grid_and_its_remainders() {
         ];
         for (kind, cells) in cases {
             let mut menu = Menu::new(kind);
-            menu.set_slot(
-                &env,
-                cells[0],
-                Some(ItemStack::new("minecraft:stick", 2)),
-            );
+            menu.set_slot(&env, cells[0], Some(ItemStack::new("minecraft:stick", 2)));
             menu.set_slot(
                 &env,
                 cells[1],
