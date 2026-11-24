@@ -97,13 +97,14 @@ def is_bot(node: dict) -> bool:
     return ((node.get("author") or {}).get("__typename")) == "Bot"
 
 
-def pushed_at(pr: dict) -> list[str]:
+def pushed_at(pr: dict, *, reruns: bool = True) -> list[str]:
     """When the head arrived: `pushedDate` and check-suite timestamps (`updatedAt` updates even when GitHub reuses a
-    suite from another branch for an older SHA). A commit's own date can be days before a push."""
+    suite from another branch for an older SHA). A commit's own date can be days before a push. `reruns=False`
+    leaves out `updatedAt`, which a CI rerun or a reused suite also moves without the author doing anything."""
     head = (pr["commits"]["nodes"] or [{}])[-1].get("commit") or {}
     out = [head["pushedDate"]] if head.get("pushedDate") else []
     for suite in (head.get("checkSuites") or {}).get("nodes", []):
-        for key in ("createdAt", "updatedAt"):
+        for key in ("createdAt", "updatedAt") if reruns else ("createdAt",):
             if suite.get(key):
                 out.append(suite[key])
     return out
@@ -114,11 +115,11 @@ def login_of(node: dict) -> str:
 
 
 def author_activity(pr: dict) -> datetime:
-    """The newest thing the pull request's author did: opened it, pushed a commit, reopened it, asked for review,
-    commented, reviewed, or replied in a review thread. A maintainer's comment does not reset this clock: otherwise
-    a PR that conflicts after the author has answered is never swept (#19327)."""
+    """The newest thing the pull request's author did: opened it, pushed a commit, reopened it, marked it ready for
+    review, commented, reviewed, or replied in a review thread. A maintainer's comment or a CI rerun does not reset
+    this clock: otherwise a PR that conflicts after the author has gone quiet is never swept (#19327)."""
     author = login_of(pr)
-    times = [pr["createdAt"], *pushed_at(pr)]
+    times = [pr["createdAt"], *pushed_at(pr, reruns=False)]
     for thread in pr["reviewThreads"]["nodes"]:
         times += [c["publishedAt"] for c in thread["comments"]["nodes"]
                   if not is_bot(c) and login_of(c) == author]
@@ -187,14 +188,11 @@ def reasons(pr: dict, now: datetime, days: dict) -> set[str] | None:
     if pr["mergeable"] == "UNKNOWN":
         return None
     out = set()
-    # The conflict clock is the author's, and a pull request the author acted on last is waiting on the team,
-    # not on its author: a maintainer's comment must not reset the clock, and must not be swept either when the
-    # author has already answered (#19327).
+    # The conflict clock is the author's: a maintainer's comment does not reset it. A pull request the author acted
+    # on last is waiting on the team, not stale, so it is not swept either (#19327).
     authored = author_activity(pr)
     other = other_activity(pr)
     idle = now - authored
-    # A maintainer's comment does not reset the author's clock, but a pull request the author answered last is
-    # waiting on the team, not stale: only warn when no one else acted after the author.
     if (pr["mergeable"] == "CONFLICTING" and idle >= timedelta(days=days[CONFLICT])
             and (other is None or authored <= other)):
         out.add(CONFLICT)
@@ -300,8 +298,8 @@ def notice_text(repo: str, why: set[str], head: str, days: dict) -> str:
 
 def closing_text(repo: str, days: dict) -> str:
     return (f"Closing: nothing changed in the {days['grace']} days after the notice above. Thank you for the work! "
-            "Once it's updated (merged with main, or the review answered), merge `main` and reopen it, or ask here "
-            "and we will. Merge `main` before reopening: GitHub cannot reopen a pull request whose branch was "
+            "Once it's updated (merged with main, or the review answered), reopen it, or ask here and we will. "
+            "Merge `main` rather than force-pushing: GitHub cannot reopen a pull request whose branch was "
             f"force-pushed after it closed. [Why]({GUIDE.format(repo=repo)})")
 
 

@@ -94,8 +94,8 @@ class TriggerTests(unittest.TestCase):
 
     def test_a_push_counts_from_when_it_arrived_not_when_the_commit_was_made(self):
         self.assertEqual(decide(pr(idle=10, pushed=1)), "skip")
-        # Fast-forward to an older SHA whose check suite was created days ago still updates suite updatedAt.
-        self.assertEqual(decide(pr(idle=10, pushed=10, suite_updated=1)), "skip")
+        # A check suite's updatedAt also moves on a CI rerun: it is not the author's activity (#19327).
+        self.assertEqual(decide(pr(idle=10, pushed=10, suite_updated=1)), "warn")
 
     def test_a_reply_in_a_review_thread_counts_as_activity(self):
         self.assertEqual(decide(pr(idle=10, threads=[{"publishedAt": ago(1),
