@@ -197,7 +197,7 @@ pub fn build_with_conditions(
     tables(base, &plan, &overlay, &jobs)?;
     // Mod files, and every tag addition gathered per tag file.
     let mut tags: BTreeMap<String, TagMerge> = BTreeMap::new();
-    let mut warnings = Vec::new();
+    let mut warnings = plan.warnings.clone();
     let mut worldgen: BTreeMap<&str, Vec<(String, String)>> = BTreeMap::new();
     let mut additions: BTreeMap<&str, Vec<Addition>> = BTreeMap::new();
     // Carvers the root leaves out: the worldgen loader drops a biome's
@@ -491,7 +491,16 @@ pub fn build_with_conditions(
             by_item(|i| i.crafting_remainder.as_deref()),
         ),
         (MOD_ITEM_TEMPLATES, by_item(|i| i.template.as_deref())),
-        (MOD_ITEM_BLOCKS, by_item(|i| i.block.as_deref())),
+        // A wall form can be earlier in the block registry than its primary form.
+        // The shared Block.asItem is not enough to choose the item's primary block.
+        (
+            MOD_ITEM_BLOCKS,
+            by_item(|i| {
+                i.block
+                    .as_deref()
+                    .or_else(|| i.wall_pair.as_ref().map(|_| i.rename.to.as_str()))
+            }),
+        ),
     ] {
         if !map.is_empty() {
             overlay.write(name, &serde_json::to_vec(&map)?)?;
@@ -553,6 +562,7 @@ pub fn resource_root_with_conditions(
             || !m.content.blocks.is_empty()
             || !m.content.items.is_empty()
             || !m.content.block_entity_types.is_empty()
+            || !m.content.vanilla_shapes.is_empty()
     });
     if inventory.is_empty() && !has_content {
         return Ok(base.to_owned());
